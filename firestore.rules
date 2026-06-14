@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global safety checks
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 2. Users Collection
+    match /users/{userId} {
+      // Allow reading user documents to show rankings in leaderboards
+      allow get, list: if isSignedIn();
+      
+      allow create: if isOwner(userId) &&
+        incoming().keys().hasAll(['uid', 'email', 'displayName', 'streak', 'treesPlanted', 'treesNeeded', 'greenScore']) &&
+        incoming().uid == userId &&
+        incoming().email is string &&
+        incoming().displayName is string &&
+        incoming().displayName.size() <= 100 &&
+        incoming().greenScore is int &&
+        incoming().streak is int &&
+        incoming().treesPlanted is int;
+
+      allow update: if isOwner(userId) &&
+        incoming().uid == userId &&
+        incoming().email == existing().email &&
+        incoming().greenScore is int &&
+        incoming().streak is int &&
+        incoming().treesPlanted is int &&
+        incoming().treesNeeded is int;
+
+      allow delete: if isOwner(userId);
+    }
+
+    // 3. Emissions Collection
+    match /emissions/{emissionId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().dailyFootprint is number &&
+        incoming().timestamp is string;
+
+      allow update: if isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == request.auth.uid &&
+        incoming().dailyFootprint is number &&
+        incoming().timestamp == existing().timestamp;
+
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // 4. Trees Collection
+    match /trees/{treeId} {
+      allow get: if isSignedIn() && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        incoming().userId == request.auth.uid &&
+        incoming().treeSpecies is string &&
+        incoming().datePlanted is string &&
+        incoming().status is string;
+
+      allow update: if isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().userId == request.auth.uid &&
+        incoming().status is string;
+
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+  }
+}

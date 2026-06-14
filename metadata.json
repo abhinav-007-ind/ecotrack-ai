@@ -1,0 +1,6 @@
+{
+  "name": "EcoTrack AI",
+  "description": "EcoTrack AI is an immersive glassmorphic carbon awareness and offset tracking platform featuring rotating Earth visualization, personalized AI recommendations, leaderboards, plant tracking, and gamified streaks and badges.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
